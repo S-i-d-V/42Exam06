@@ -55,7 +55,8 @@ void	freeClients(t_client *clients) {
 //Fatal
 void	fatalError(int serverSocket, t_client *clients){
 	write(2, "Fatal error\n", 12);
-	close(serverSocket);
+	if (serverSocket != -1)
+		close(serverSocket);
 	if (clients)
 		freeClients(clients);
 	exit(1);
@@ -128,7 +129,7 @@ void	sendToClients(t_client *clients, char* toSend, int fd) {
 //Main
 int main(int ac, char** av) {
 	//Socket
-	int		serverSocket;
+	int		serverSocket = -1;
 	int connfd, id;
 	socklen_t	len;
 	struct sockaddr_in servaddr, cli;
@@ -139,8 +140,6 @@ int main(int ac, char** av) {
 	struct timeval	timeout;
 
 	//Messages
-	char	*buff;
-	char	str[4200];
 	char*	msg;
 	ssize_t	recvSize;
 
@@ -156,13 +155,12 @@ int main(int ac, char** av) {
 
 	if ((clients = malloc(sizeof(t_client))) == NULL)
 		fatalError(serverSocket, clients);
+	clients = NULL;
 
 	// socket create and verification 
 	serverSocket = socket(AF_INET, SOCK_STREAM, 0); 
-	if (serverSocket == -1){
-		write(2, "Fatal error\n", 12); 
-		exit(1);
-	} 
+	if (serverSocket == -1)
+		fatalError(serverSocket, clients);
 
 	// assign IP, PORT
 	bzero(&servaddr, sizeof(servaddr)); 
@@ -179,7 +177,11 @@ int main(int ac, char** av) {
 		fatalError(serverSocket, clients);
 
 	//Init buffer
-	if ((buff = malloc(4096)) == NULL){
+	char	*recvBuffer;
+	char	sendBuffer[4200];
+	
+
+	if ((recvBuffer = malloc(4096)) == NULL){
 		free(clients);
 		fatalError(serverSocket, clients);
 	}
@@ -210,8 +212,8 @@ int main(int ac, char** av) {
 					id = AddClient(&clients, connfd, serverSocket);
 					if (max_fd < connfd)
 						max_fd = connfd;
-					sprintf(str, "server: client %d just arrived\n", id);
-					sendToClients(clients, str, connfd);
+					sprintf(sendBuffer, "server: client %d just arrived\n", id);
+					sendToClients(clients, sendBuffer, connfd);
 				}
 			}
 			else {
@@ -221,21 +223,21 @@ int main(int ac, char** av) {
 					id = tmp->id;
 					tmp = tmp->next;
 					if (FD_ISSET(connfd, &set_read)) {
-						recvSize = recv(connfd, buff, 4096, 0);
+						recvSize = recv(connfd, recvBuffer, 4096, 0);
 						//A client disconnect
 						if (recvSize == 0) {
 							id = deleteClient(&clients, connfd, serverSocket);
 							if (id != -1){
-								sprintf(str, "server: client %d just left\n", id);
-								sendToClients(clients, str, connfd);
+								sprintf(sendBuffer, "server: client %d just left\n", id);
+								sendToClients(clients, sendBuffer, connfd);
 							}
 						}
 						//Send received octets to clients
 						else if (recvSize > 0) {
 							msg = NULL;
-							while (extract_message(&buff, &msg) != 0) {
-								sprintf(str, "client %d: %s", id, msg);
-								sendToClients(clients, str, connfd);
+							while (extract_message(&recvBuffer, &msg) != 0) {
+								sprintf(sendBuffer, "client %d: %s", id, msg);
+								sendToClients(clients, sendBuffer, connfd);
 							}
 						}
 					}
