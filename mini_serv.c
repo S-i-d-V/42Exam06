@@ -4,7 +4,6 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -18,14 +17,14 @@ void	freeClients(t_client *clients) {
 	t_client*	tmp;
 
 	while (clients != NULL) {
-		tmp = (*clients).next;
-		close((*clients).fd);
+		tmp = clients->next;
+		close(clients->fd);
 		free(clients);
 		clients = tmp;
 	}
 }
 
-void	fatalError(int serverSocket, t_client *clients){
+void	fatalError(t_client *clients, int serverSocket) {
 	write(2, "Fatal error\n", 12);
 	if (serverSocket != -1)
 		close(serverSocket);
@@ -34,13 +33,46 @@ void	fatalError(int serverSocket, t_client *clients){
 	exit(1);
 }
 
-int		AddClient(t_client **clients, int fd, int serverSocket) {
+int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
+	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (serverSocket == -1)
+		fatalError(clients, serverSocket);
+	bzero(servaddr, sizeof(*servaddr)); 
+	if (atoi(arg) <= 0)
+		fatalError(clients, serverSocket);
+	servaddr->sin_family = AF_INET; 
+	servaddr->sin_addr.s_addr = htonl(2130706433);
+	servaddr->sin_port = htons(atoi(arg));
+	if ((bind(serverSocket, (const struct sockaddr *)servaddr, sizeof(*servaddr))) != 0)
+		fatalError(clients, serverSocket);
+	if (listen(serverSocket, 10) != 0)
+		fatalError(clients, serverSocket);
+	
+	return (serverSocket);
+}
+
+void	initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd){
+	t_client *tmpClients = clients;
+	
+	FD_ZERO(set_read);
+	*max_fd = serverSocket;
+	while (tmpClients != NULL) {
+		FD_SET(tmpClients->fd, set_read);
+		if (*max_fd < tmpClients->fd)
+			*max_fd = tmpClients->fd;
+		tmpClients = tmpClients->next;
+	}
+	FD_SET(serverSocket, set_read);
+}
+
+int		addClient(t_client **clients, int serverSocket, int fd) {
 	static int lastId = -1;
 	t_client*	new;
 	t_client*	tmp;
 
 	if ((new = malloc(sizeof(t_client))) == NULL || clients == NULL) {
-		fatalError(serverSocket, *clients);
+		fatalError(*clients, serverSocket);
 	}
 	new->fd = fd;
 	new->id = ++lastId;
@@ -56,14 +88,13 @@ int		AddClient(t_client **clients, int fd, int serverSocket) {
 	return (new->id);
 }
 
-int		deleteClient(t_client **clients, int fd, int serverSocket) {
+int		deleteClient(t_client **clients, int serverSocket, int fd) {
 	t_client*	prev;
 	t_client*	tmp;
-	int			id;
+	int			id = -1;
 
 	if (clients == NULL)
-		fatalError(serverSocket, *clients);
-	id = -1;
+		fatalError(*clients, serverSocket);
 	prev = NULL;
 	tmp = *clients;
 	if (tmp != NULL && tmp->fd == fd) {
@@ -87,48 +118,15 @@ int		deleteClient(t_client **clients, int fd, int serverSocket) {
 	return (id);
 }
 
-void	sendToClients(int serverSocket, t_client *clients, char* toSend, int fd) {
+void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 	t_client *tmpClients = clients;
 
 	while (tmpClients != NULL) {
 		if (tmpClients->fd != fd)
 			if (send(tmpClients->fd, toSend, strlen(toSend), 0) < 0)
-				fatalError(serverSocket, tmpClients);
+				fatalError(clients, serverSocket);
 		tmpClients = tmpClients->next;
 	}
-}
-
-int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
-	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (serverSocket == -1)
-		fatalError(serverSocket, clients);
-	bzero(servaddr, sizeof(*servaddr)); 
-	if (atoi(arg) <= 0)
-		fatalError(serverSocket, clients);
-	servaddr->sin_family = AF_INET; 
-	servaddr->sin_addr.s_addr = htonl(2130706433);
-	servaddr->sin_port = htons(atoi(arg));
-	if ((bind(serverSocket, (const struct sockaddr *)servaddr, sizeof(*servaddr))) != 0)
-		fatalError(serverSocket, clients);
-	if (listen(serverSocket, 10) != 0)
-		fatalError(serverSocket, clients);
-	
-	return (serverSocket);
-}
-
-void	initFds(fd_set *set_read, int *max_fd, t_client *clients, int serverSocket){
-	t_client *tmpClients;
-	
-	FD_ZERO(set_read);
-	*max_fd = serverSocket;
-	tmpClients = clients;
-	while (tmpClients != NULL) {
-		FD_SET(tmpClients->fd, set_read);
-		if (*max_fd < tmpClients->fd)
-			*max_fd = tmpClients->fd;
-		tmpClients = tmpClients->next;
-	}
-	FD_SET(serverSocket, set_read);
 }
 
 int main(int ac, char** av) {
@@ -150,21 +148,19 @@ int main(int ac, char** av) {
 		exit(1);
 	}
 	if ((clients = malloc(sizeof(t_client))) == NULL)
-		fatalError(serverSocket, clients);
+		fatalError(clients, serverSocket);
 	clients = NULL;
 	serverSocket = initSocket(clients, &servaddr, av[1]);
 	socketLen = sizeof(cli);
 	while (1) {
-		initFds(&set_read, &max_fd, clients, serverSocket);
+		initFds(clients, serverSocket, &set_read, &max_fd);
 		if (select(max_fd + 1, &set_read, NULL, NULL, NULL) > 0) {
 			if (FD_ISSET(serverSocket, &set_read)) {
 				clientFd = accept(serverSocket, (struct sockaddr *)&cli, &socketLen);
 				if (clientFd >= 0) {
-					clientId = AddClient(&clients, clientFd, serverSocket);
-					if (max_fd < clientFd)
-						max_fd = clientFd;
+					clientId = addClient(&clients, serverSocket, clientFd);
 					sprintf(sendBuffer, "server: client %d just arrived\n", clientId);
-					sendToClients(serverSocket, clients, sendBuffer, clientFd);
+					sendToClients(clients, serverSocket, clientFd, sendBuffer);
 				}
 			}
 			else {
@@ -176,15 +172,15 @@ int main(int ac, char** av) {
 					if (FD_ISSET(clientFd, &set_read)) {
 						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						if (recvSize == 0) {
-							clientId = deleteClient(&clients, clientFd, serverSocket);
+							clientId = deleteClient(&clients, serverSocket, clientFd);
 							if (clientId != -1){
 								sprintf(sendBuffer, "server: client %d just left\n", clientId);
-								sendToClients(serverSocket, clients, sendBuffer, clientFd);
+								sendToClients(clients, serverSocket, clientFd, sendBuffer);
 							}
 						}
 						else if (recvSize > 0) {
 							sprintf(sendBuffer, "client %d: %s", clientId, recvBuffer);
-							sendToClients(serverSocket, clients, sendBuffer, clientFd);
+							sendToClients(clients, serverSocket, clientFd, sendBuffer);
 							bzero(&recvBuffer, 4096 * 42);
 						}
 					}
