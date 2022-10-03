@@ -103,8 +103,6 @@ int		deleteClient(t_client **clients, int serverSocket, int fd) {
 	t_client*	tmp;
 	int			id = -1;
 
-	if (clients == NULL)
-		fatalError(*clients, serverSocket);
 	prev = NULL;
 	tmp = *clients;
 	if (tmp != NULL && tmp->fd == fd) {
