@@ -17,21 +17,21 @@ int   deleteClient(t_client *clients, int serverSocket, int fd);
 
 void  sendToClients(t_client *clients, int serverSocket, int fd, char *toSend);
 int   initSocket(t_client *clients, struct sockaddr_in servaddr, char *arg);
-void  initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd);
+void  initFds(t_client *clients, int serverSocket, fd_set *setRead, int *maxFd);
 
 int   main(int ac, char **av){
   ...
   while (1) {
-    initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd);
-    if (select(max_fd + 1, &set_read, NULL, NULL, NULL){
-        if (FD_ISSET(serverSocket, &set_read)){
+    initFds(t_client *clients, int serverSocket, fd_set *setRead, int *maxFd);
+    if (select(maxFd + 1, &setRead, NULL, NULL, NULL){
+        if (FD_ISSET(serverSocket, &setRead)){
             if (clientFd >= 0({
                 ...
             }
         }
         else{
             while (tmpClients != NULL){
-                if (FD_ISSET(serverSocket &set_read)){
+                if (FD_ISSET(serverSocket &setRead)){
                     if (recvSize == 0){
                         if (clientId != -1){
                             ...
