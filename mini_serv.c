@@ -81,9 +81,8 @@ int		addClient(t_client **clients, int serverSocket, int fd) {
 	t_client*	new;
 	t_client*	tmp;
 
-	if ((new = malloc(sizeof(t_client))) == NULL || clients == NULL) {
+	if ((new = malloc(sizeof(t_client))) == NULL)
 		fatalError(*clients, serverSocket);
-	}
 	new->fd = fd;
 	new->id = ++lastId;
 	new->next = NULL;
