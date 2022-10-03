@@ -87,34 +87,23 @@ int		addClient(t_client **clients, int serverSocket, int fd) {
 	return (new->id);
 }
 
-int		deleteClient(t_client **clients, int serverSocket, int fd) {
-	t_client*	prev;
-	t_client*	tmp;
-	int			id = -1;
+int		deleteClient(t_client **clients, int fd) {
+	t_client *tmp = *clients;
+    t_client *toDel = NULL;
+    int id = -1;
 
-	if (clients == NULL)
-		fatalError(*clients, serverSocket);
-	prev = NULL;
-	tmp = *clients;
-	if (tmp != NULL && tmp->fd == fd) {
-		*clients = tmp->next;
-		id = tmp->id;
-		close((*tmp).fd);
-		free(tmp);
-	}
-	else {
-		while (tmp != NULL && tmp->fd != fd) {
-			prev = tmp;
-			tmp = tmp->next;
-		}
-		if (tmp != NULL) {
-			prev->next = tmp->next;
-			close(tmp->fd);
-			id = tmp->id;
-			free(tmp);
-		}
-	}
-	return (id);
+    while (tmp->next){
+        if (tmp->next->fd == fd){
+            toDel = tmp->next;
+            tmp->next = tmp->next->next;
+            close(toDel->fd);
+            id = toDel->id;
+            free(toDel);
+            break ;
+        }
+        tmp = tmp->next;
+    }
+    return (id);
 }
 
 void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
@@ -171,7 +160,7 @@ int main(int ac, char** av) {
 					if (FD_ISSET(clientFd, &set_read)) {
 						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						if (recvSize == 0) {
-							clientId = deleteClient(&clients, serverSocket, clientFd);
+							clientId = deleteClient(&clients, clientFd);
 							if (clientId != -1){
 								sprintf(sendBuffer, "server: client %d just left\n", clientId);
 								sendToClients(clients, serverSocket, clientFd, sendBuffer);

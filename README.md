@@ -13,7 +13,7 @@ void  freeClients(t_client *clients);
 void  fatalError(t_client *clients, int serverSocket);
 
 int   addClient(t_client *clients, int serverSocket, int fd);
-int   deleteClient(t_client *clients, int serverSocket, int fd);
+int   deleteClient(t_client *clients, int fd);
 
 void  sendToClients(t_client *clients, int serverSocket, int fd, char *toSend);
 int   initSocket(t_client *clients, struct sockaddr_in servaddr, char *arg);
