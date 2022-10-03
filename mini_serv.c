@@ -52,18 +52,18 @@ int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 	return (serverSocket);
 }
 
-void	initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd){
+void	initFds(t_client *clients, int serverSocket, fd_set *setRead, int *maxFd){
 	t_client *tmpClients = clients;
 	
-	FD_ZERO(set_read);
-	*max_fd = serverSocket;
+	FD_ZERO(setRead);
+	*maxFd = serverSocket;
 	while (tmpClients != NULL) {
-		FD_SET(tmpClients->fd, set_read);
-		if (*max_fd < tmpClients->fd)
-			*max_fd = tmpClients->fd;
+		FD_SET(tmpClients->fd, setRead);
+		if (*maxFd < tmpClients->fd)
+			*maxFd = tmpClients->fd;
 		tmpClients = tmpClients->next;
 	}
-	FD_SET(serverSocket, set_read);
+	FD_SET(serverSocket, setRead);
 }
 
 int		addClient(t_client **clients, int serverSocket, int fd) {
@@ -87,23 +87,32 @@ int		addClient(t_client **clients, int serverSocket, int fd) {
 	return (new->id);
 }
 
-int		deleteClient(t_client **clients, int fd) {
-	t_client *tmp = *clients;
-    t_client *toDel = NULL;
-    int id = -1;
+int		deleteClient(t_client **clients, int serverSocket, int fd) {
+	t_client*	prev;
+	t_client*	tmp;
+	int			id = -1;
 
-    while (tmp->next){
-        if (tmp->next->fd == fd){
-            toDel = tmp->next;
-            tmp->next = tmp->next->next;
-            close(toDel->fd);
-            id = toDel->id;
-            free(toDel);
-            break ;
-        }
-        tmp = tmp->next;
-    }
-    return (id);
+	prev = NULL;
+	tmp = *clients;
+	if (tmp != NULL && tmp->fd == fd) {
+		*clients = tmp->next;
+		id = tmp->id;
+		close((*tmp).fd);
+		free(tmp);
+	}
+	else {
+		while (tmp != NULL && tmp->fd != fd) {
+			prev = tmp;
+			tmp = tmp->next;
+		}
+		if (tmp != NULL) {
+			prev->next = tmp->next;
+			close(tmp->fd);
+			id = tmp->id;
+			free(tmp);
+		}
+	}
+	return (id);
 }
 
 void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
@@ -125,8 +134,8 @@ int main(int ac, char** av) {
 	t_client*			tmpClients = NULL;
 	int 				clientFd;
 	int					clientId;
-	int					max_fd;
-	fd_set				set_read;
+	int					maxFd;
+	fd_set				setRead;
 	char				recvBuffer[4096 * 42];
 	char				sendBuffer[4096 * 42];
 	ssize_t				recvSize;
@@ -141,9 +150,10 @@ int main(int ac, char** av) {
 	serverSocket = initSocket(clients, &servaddr, av[1]);
 	socketLen = sizeof(cli);
 	while (1) {
-		initFds(clients, serverSocket, &set_read, &max_fd);
-		if (select(max_fd + 1, &set_read, NULL, NULL, NULL) > 0) {
-			if (FD_ISSET(serverSocket, &set_read)) {
+		initFds(clients, serverSocket, &setRead, &maxFd);
+
+		if (select(maxFd + 1, &setRead, NULL, NULL, NULL) > 0) {
+			if (FD_ISSET(serverSocket, &setRead)) {
 				clientFd = accept(serverSocket, (struct sockaddr *)&cli, &socketLen);
 				if (clientFd >= 0) {
 					clientId = addClient(&clients, serverSocket, clientFd);
@@ -157,10 +167,10 @@ int main(int ac, char** av) {
 					clientFd = tmpClients->fd;
 					clientId = tmpClients->id;
 					tmpClients = tmpClients->next;
-					if (FD_ISSET(clientFd, &set_read)) {
+					if (FD_ISSET(clientFd, &setRead)) {
 						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						if (recvSize == 0) {
-							clientId = deleteClient(&clients, clientFd);
+							clientId = deleteClient(&clients, serverSocket, clientFd);
 							if (clientId != -1){
 								sprintf(sendBuffer, "server: client %d just left\n", clientId);
 								sendToClients(clients, serverSocket, clientFd, sendBuffer);
