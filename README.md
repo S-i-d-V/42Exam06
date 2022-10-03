@@ -30,7 +30,7 @@ int   main(int ac, char **av){
             }
         }
         else{
-            while (tmpClients != NULL){
+            while (tmp != NULL){
                 if (FD_ISSET(serverSocket &set_read)){
                     if (recvSize == 0){
                         if (clientId != -1){

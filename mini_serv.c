@@ -53,15 +53,15 @@ int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 }
 
 void	initFds(t_client *clients, int serverSocket, fd_set *setRead, int *maxFd){
-	t_client *tmpClients = clients;
+	t_client *tmp = clients;
 	
 	FD_ZERO(setRead);
 	*maxFd = serverSocket;
-	while (tmpClients != NULL) {
-		FD_SET(tmpClients->fd, setRead);
-		if (*maxFd < tmpClients->fd)
-			*maxFd = tmpClients->fd;
-		tmpClients = tmpClients->next;
+	while (tmp != NULL) {
+		FD_SET(tmp->fd, setRead);
+		if (*maxFd < tmp->fd)
+			*maxFd = tmp->fd;
+		tmp = tmp->next;
 	}
 	FD_SET(serverSocket, setRead);
 }
@@ -95,7 +95,7 @@ int		deleteClient(t_client **clients, int fd) {
 	if (tmp != NULL && tmp->fd == fd) {
 		*clients = tmp->next;
 		id = tmp->id;
-		close((*tmp).fd);
+		close(tmp->fd);
 		free(tmp);
 	}
 	else {
@@ -114,13 +114,13 @@ int		deleteClient(t_client **clients, int fd) {
 }
 
 void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
-	t_client *tmpClients = clients;
+	t_client *tmp = clients;
 
-	while (tmpClients != NULL) {
-		if (tmpClients->fd != fd)
-			if (send(tmpClients->fd, toSend, strlen(toSend), 0) < 0)
+	while (tmp != NULL) {
+		if (tmp->fd != fd)
+			if (send(tmp->fd, toSend, strlen(toSend), 0) < 0)
 				fatalError(clients, serverSocket);
-		tmpClients = tmpClients->next;
+		tmp = tmp->next;
 	}
 }
 
@@ -129,7 +129,7 @@ int main(int ac, char** av) {
 	socklen_t			socketLen;
 	struct sockaddr_in	servaddr, cli;
 	t_client*			clients = NULL;
-	t_client*			tmpClients = NULL;
+	t_client*			tmp = NULL;
 	int 				clientFd;
 	int					clientId;
 	int					maxFd;
@@ -142,9 +142,6 @@ int main(int ac, char** av) {
 		write(2, "Wrong number of arguments\n", 26);
 		exit(1);
 	}
-	if ((clients = malloc(sizeof(t_client))) == NULL)
-		fatalError(clients, serverSocket);
-	clients = NULL;
 	serverSocket = initSocket(clients, &servaddr, av[1]);
 	socketLen = sizeof(cli);
 	while (1) {
@@ -160,11 +157,11 @@ int main(int ac, char** av) {
 				}
 			}
 			else {
-				tmpClients = clients;
-				while (tmpClients != NULL) {
-					clientFd = tmpClients->fd;
-					clientId = tmpClients->id;
-					tmpClients = tmpClients->next;
+				tmp = clients;
+				while (tmp != NULL) {
+					clientFd = tmp->fd;
+					clientId = tmp->id;
+					tmp = tmp->next;
 					if (FD_ISSET(clientFd, &setRead)) {
 						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						if (recvSize == 0) {
