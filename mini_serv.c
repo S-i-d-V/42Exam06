@@ -87,13 +87,11 @@ int		addClient(t_client **clients, int serverSocket, int fd) {
 	return (new->id);
 }
 
-int		deleteClient(t_client **clients, int serverSocket, int fd) {
-	t_client*	prev;
-	t_client*	tmp;
+int		deleteClient(t_client **clients, int fd) {
+	t_client*	prev = NULL;
+	t_client*	tmp = *clients;
 	int			id = -1;
 
-	prev = NULL;
-	tmp = *clients;
 	if (tmp != NULL && tmp->fd == fd) {
 		*clients = tmp->next;
 		id = tmp->id;
@@ -170,7 +168,7 @@ int main(int ac, char** av) {
 					if (FD_ISSET(clientFd, &setRead)) {
 						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						if (recvSize == 0) {
-							clientId = deleteClient(&clients, serverSocket, clientFd);
+							clientId = deleteClient(&clients, clientFd);
 							if (clientId != -1){
 								sprintf(sendBuffer, "server: client %d just left\n", clientId);
 								sendToClients(clients, serverSocket, clientFd, sendBuffer);
