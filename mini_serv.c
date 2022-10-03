@@ -20,15 +20,15 @@ void	freeClients(t_client *clients) {
 	t_client*	tmp;
 
 	while (clients != NULL) {
-		tmp = (*clients).next;
-		close((*clients).fd);
+		tmp = clients->next;
+		close(clients->fd);
 		free(clients);
 		clients = tmp;
 	}
 }
 
 //Fatal
-void	fatalError(int serverSocket, t_client *clients){
+void	fatalError(t_client *clients, int serverSocket) {
 	write(2, "Fatal error\n", 12);
 	if (serverSocket != -1)
 		close(serverSocket);
@@ -38,13 +38,13 @@ void	fatalError(int serverSocket, t_client *clients){
 }
 
 //Add a new client to the linked list
-int		AddClient(t_client **clients, int fd, int serverSocket) {
+int		AddClient(t_client **clients, int serverSocket, int fd) {
 	static int lastId = -1;
 	t_client*	new;
 	t_client*	tmp;
 
 	if ((new = malloc(sizeof(t_client))) == NULL || clients == NULL) {
-		fatalError(serverSocket, *clients);
+		fatalError(*clients, serverSocket);
 	}
 	new->fd = fd;
 	new->id = ++lastId;
@@ -61,14 +61,13 @@ int		AddClient(t_client **clients, int fd, int serverSocket) {
 }
 
 //Remove a client from the linked list
-int		deleteClient(t_client **clients, int fd, int serverSocket) {
+int		deleteClient(t_client **clients, int serverSocket, int fd) {
 	t_client*	prev;
 	t_client*	tmp;
-	int			id;
+	int			id = -1;
 
 	if (clients == NULL)
-		fatalError(serverSocket, *clients);
-	id = -1;
+		fatalError(*clients, serverSocket);
 	prev = NULL;
 	tmp = *clients;
 	if (tmp != NULL && tmp->fd == fd) {
@@ -93,13 +92,13 @@ int		deleteClient(t_client **clients, int fd, int serverSocket) {
 }
 
 //Send message
-void	sendToClients(int serverSocket, t_client *clients, char* toSend, int fd) {
+void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 	t_client *tmpClients = clients;
 
 	while (tmpClients != NULL) {
 		if (tmpClients->fd != fd)
 			if (send(tmpClients->fd, toSend, strlen(toSend), 0) < 0)
-				fatalError(serverSocket, tmpClients);
+				fatalError(clients, serverSocket);
 		tmpClients = tmpClients->next;
 	}
 }
@@ -109,25 +108,25 @@ int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 	// socket create and verification 
 	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (serverSocket == -1)
-		fatalError(serverSocket, clients);
+		fatalError(clients, serverSocket);
 	// assign IP, PORT
 	bzero(servaddr, sizeof(*servaddr)); 
 	if (atoi(arg) <= 0)
-		fatalError(serverSocket, clients);
+		fatalError(clients, serverSocket);
 	servaddr->sin_family = AF_INET; 
 	servaddr->sin_addr.s_addr = htonl(2130706433); //127.0.0.1
 	servaddr->sin_port = htons(atoi(arg));
 	// Binding newly created socket to given IP and verification 
 	if ((bind(serverSocket, (const struct sockaddr *)servaddr, sizeof(*servaddr))) != 0)
-		fatalError(serverSocket, clients);
+		fatalError(clients, serverSocket);
 	if (listen(serverSocket, 10) != 0)
-		fatalError(serverSocket, clients);
+		fatalError(clients, serverSocket);
 	
 	return (serverSocket);
 }
 
 //Init fds
-void	initFds(fd_set *set_read, int *max_fd, t_client *clients, int serverSocket){
+void	initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd){
 	t_client *tmpClients;
 	
 	FD_ZERO(set_read);
@@ -172,7 +171,7 @@ int main(int ac, char** av) {
 
 	//Init clients
 	if ((clients = malloc(sizeof(t_client))) == NULL)
-		fatalError(serverSocket, clients);
+		fatalError(clients, serverSocket);
 	clients = NULL;
 	
 	//Init socket
@@ -182,7 +181,7 @@ int main(int ac, char** av) {
 	socketLen = sizeof(cli);
 	while (1) {
 		//Init FD
-		initFds(&set_read, &max_fd, clients, serverSocket);
+		initFds(clients, serverSocket, &set_read, &max_fd);
 
 		//I check if the max_fd + 1 is set
 		if (select(max_fd + 1, &set_read, NULL, NULL, NULL) > 0) {
@@ -193,12 +192,12 @@ int main(int ac, char** av) {
 				//If the connexion succeed
 				if (clientFd >= 0) {
 					//Add a client
-					clientId = AddClient(&clients, clientFd, serverSocket);
+					clientId = AddClient(&clients, serverSocket, clientFd);
 					if (max_fd < clientFd)
 						max_fd = clientFd;
 					//Fill the sendBuffer with the formated connexion message
 					sprintf(sendBuffer, "server: client %d just arrived\n", clientId);
-					sendToClients(serverSocket, clients, sendBuffer, clientFd);
+					sendToClients(clients, serverSocket, clientFd, sendBuffer);
 				}
 			}
 			//If the fd is not set
@@ -216,18 +215,18 @@ int main(int ac, char** av) {
 						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						//A client disconnect
 						if (recvSize == 0) {
-							clientId = deleteClient(&clients, clientFd, serverSocket);
+							clientId = deleteClient(&clients, serverSocket, clientFd);
 							if (clientId != -1){
 								//Fill the sendBuffer with the formated disconnexion message
 								sprintf(sendBuffer, "server: client %d just left\n", clientId);
-								sendToClients(serverSocket, clients, sendBuffer, clientFd);
+								sendToClients(clients, serverSocket, clientFd, sendBuffer);
 							}
 						}
 						//Send received octets to clients
 						else if (recvSize > 0) {
 							//Fill the sendBuffer with the formated message
 							sprintf(sendBuffer, "client %d: %s", clientId, recvBuffer);
-							sendToClients(serverSocket, clients, sendBuffer, clientFd);
+							sendToClients(clients, serverSocket, clientFd, sendBuffer);
 							bzero(&recvBuffer, 4096 * 42);
 						}
 					}
