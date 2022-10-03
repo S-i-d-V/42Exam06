@@ -37,6 +37,44 @@ void	fatalError(t_client *clients, int serverSocket) {
 	exit(1);
 }
 
+//Init socket
+int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
+	// socket create and verification 
+	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (serverSocket == -1)
+		fatalError(clients, serverSocket);
+	// assign IP, PORT
+	bzero(servaddr, sizeof(*servaddr)); 
+	if (atoi(arg) <= 0)
+		fatalError(clients, serverSocket);
+	servaddr->sin_family = AF_INET; 
+	servaddr->sin_addr.s_addr = htonl(2130706433); //127.0.0.1
+	servaddr->sin_port = htons(atoi(arg));
+	// Binding newly created socket to given IP and verification 
+	if ((bind(serverSocket, (const struct sockaddr *)servaddr, sizeof(*servaddr))) != 0)
+		fatalError(clients, serverSocket);
+	if (listen(serverSocket, 10) != 0)
+		fatalError(clients, serverSocket);
+	
+	return (serverSocket);
+}
+
+//Init fds
+void	initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd){
+	t_client *tmpClients = clients;
+	
+	FD_ZERO(set_read);
+	*max_fd = serverSocket;
+	while (tmpClients != NULL) {
+		FD_SET(tmpClients->fd, set_read);
+		if (*max_fd < tmpClients->fd)
+			*max_fd = tmpClients->fd;
+		tmpClients = tmpClients->next;
+	}
+	FD_SET(serverSocket, set_read);
+}
+
 //Add a new client to the linked list
 int		addClient(t_client **clients, int serverSocket, int fd) {
 	static int lastId = -1;
@@ -101,44 +139,6 @@ void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 				fatalError(clients, serverSocket);
 		tmpClients = tmpClients->next;
 	}
-}
-
-//Init socket
-int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
-	// socket create and verification 
-	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-	if (serverSocket == -1)
-		fatalError(clients, serverSocket);
-	// assign IP, PORT
-	bzero(servaddr, sizeof(*servaddr)); 
-	if (atoi(arg) <= 0)
-		fatalError(clients, serverSocket);
-	servaddr->sin_family = AF_INET; 
-	servaddr->sin_addr.s_addr = htonl(2130706433); //127.0.0.1
-	servaddr->sin_port = htons(atoi(arg));
-	// Binding newly created socket to given IP and verification 
-	if ((bind(serverSocket, (const struct sockaddr *)servaddr, sizeof(*servaddr))) != 0)
-		fatalError(clients, serverSocket);
-	if (listen(serverSocket, 10) != 0)
-		fatalError(clients, serverSocket);
-	
-	return (serverSocket);
-}
-
-//Init fds
-void	initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd){
-	t_client *tmpClients = clients;
-	
-	FD_ZERO(set_read);
-	*max_fd = serverSocket;
-	while (tmpClients != NULL) {
-		FD_SET(tmpClients->fd, set_read);
-		if (*max_fd < tmpClients->fd)
-			*max_fd = tmpClients->fd;
-		tmpClients = tmpClients->next;
-	}
-	FD_SET(serverSocket, set_read);
 }
 
 //Main
