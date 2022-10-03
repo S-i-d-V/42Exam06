@@ -2,11 +2,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+
+#include <stdlib.h>
+#include <stdio.h>
 
 //Struct
 typedef struct	s_client {
@@ -58,7 +58,6 @@ int		AddClient(t_client **clients, int fd, int serverSocket) {
 		tmp->next = new;
 	}
 	return (new->id);
-
 }
 
 //Remove a client from the linked list
@@ -93,6 +92,7 @@ int		deleteClient(t_client **clients, int fd, int serverSocket) {
 	return (id);
 }
 
+//Send message
 void	sendToClients(int serverSocket, t_client *clients, char* toSend, int fd) {
 	t_client *tmpClients = clients;
 
@@ -126,6 +126,7 @@ int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 	return (serverSocket);
 }
 
+//Init fds
 void	initFds(fd_set *set_read, int *max_fd, t_client *clients, int serverSocket){
 	t_client *tmpClients;
 	
@@ -173,6 +174,7 @@ int main(int ac, char** av) {
 	if ((clients = malloc(sizeof(t_client))) == NULL)
 		fatalError(serverSocket, clients);
 	clients = NULL;
+	
 	//Init socket
 	serverSocket = initSocket(clients, &servaddr, av[1]);
 
