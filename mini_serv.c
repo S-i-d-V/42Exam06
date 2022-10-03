@@ -141,21 +141,6 @@ void	initFds(fd_set *set_read, int *max_fd, t_client *clients, int serverSocket)
 	FD_SET(serverSocket, set_read);
 }
 
-//DEBUG
-void	displayBuffer(char *buffer){
-	int i = 0;
-
-	printf("'");
-	while (buffer[i]){
-		if (buffer[i] == '\n')
-			printf("\\n");
-		else
-			printf("%c", buffer[i]);
-		i++;
-	}
-	printf("'\n");
-}
-
 //Main
 int main(int ac, char** av) {
 	//Socket
@@ -226,7 +211,7 @@ int main(int ac, char** av) {
 					//If the FD is set
 					if (FD_ISSET(clientFd, &set_read)) {
 						//I try to receive octets send by the fd
-						recvSize = recv(clientFd, recvBuffer, 4096, 0);
+						recvSize = recv(clientFd, recvBuffer, 4096 * 42, 0);
 						//A client disconnect
 						if (recvSize == 0) {
 							clientId = deleteClient(&clients, clientFd, serverSocket);
@@ -241,7 +226,7 @@ int main(int ac, char** av) {
 							//Fill the sendBuffer with the formated message
 							sprintf(sendBuffer, "client %d: %s", clientId, recvBuffer);
 							sendToClients(serverSocket, clients, sendBuffer, clientFd);
-							bzero(&recvBuffer, 4096);
+							bzero(&recvBuffer, 4096 * 42);
 						}
 					}
 				}
