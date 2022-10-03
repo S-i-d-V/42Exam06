@@ -126,13 +126,33 @@ void	sendToClients(t_client *clients, char* toSend, int fd) {
 	}
 }
 
+//DEBUG
+void	displayBuffer(char *buffer){
+	int i = 0;
+
+	printf("'");
+	while (buffer[i]){
+		if (buffer[i] == '\n')
+			printf("\\n");
+		else
+			printf("%c", buffer[i]);
+		i++;
+	}
+	printf("'\n");
+}
+
 //Main
 int main(int ac, char** av) {
 	//Socket
-	int		serverSocket = -1;
-	int connfd, id;
-	socklen_t	len;
-	struct sockaddr_in servaddr, cli;
+	int					serverSocket = -1;
+	socklen_t			socketLen;
+	struct sockaddr_in	servaddr, cli;
+
+	//Client
+	t_client*			clients = NULL;
+	t_client*			tmpClients = NULL;
+	int 				clientFd;
+	int					clientId;
 
 	//FD
 	int		max_fd;
@@ -150,9 +170,6 @@ int main(int ac, char** av) {
 	}
 
 	//Init client
-	t_client*	clients = NULL;
-	t_client*	tmp = NULL;
-
 	if ((clients = malloc(sizeof(t_client))) == NULL)
 		fatalError(serverSocket, clients);
 	clients = NULL;
@@ -161,7 +178,6 @@ int main(int ac, char** av) {
 	serverSocket = socket(AF_INET, SOCK_STREAM, 0); 
 	if (serverSocket == -1)
 		fatalError(serverSocket, clients);
-
 	// assign IP, PORT
 	bzero(&servaddr, sizeof(servaddr)); 
 	if (atoi(av[1]) <= 0)
@@ -169,7 +185,6 @@ int main(int ac, char** av) {
 	servaddr.sin_family = AF_INET; 
 	servaddr.sin_addr.s_addr = htonl(2130706433); //127.0.0.1
 	servaddr.sin_port = htons(atoi(av[1]));
-  
 	// Binding newly created socket to given IP and verification 
 	if ((bind(serverSocket, (const struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
 		fatalError(serverSocket, clients);
@@ -181,64 +196,94 @@ int main(int ac, char** av) {
 	char	sendBuffer[4200];
 	
 
-	if ((recvBuffer = malloc(4096)) == NULL){
+	if ((recvBuffer = malloc(4096 * sizeof(char))) == NULL){
 		free(clients);
 		fatalError(serverSocket, clients);
 	}
 
 	//Loop
-	len = sizeof(cli);
+	socketLen = sizeof(cli);
 	timeout.tv_sec = 5;
 	timeout.tv_usec = 0;
 	while (1) {
 		//Init FD
 		FD_ZERO(&set_read);
 		max_fd = serverSocket;
-		tmp = clients;
-		while (tmp != NULL) {
-			FD_SET(tmp->fd, &set_read);
-			if (max_fd < tmp->fd)
-				max_fd = tmp->fd;
-			tmp = tmp->next;
+		tmpClients = clients;
+		while (tmpClients != NULL) {
+			FD_SET(tmpClients->fd, &set_read);
+			if (max_fd < tmpClients->fd)
+				max_fd = tmpClients->fd;
+			tmpClients = tmpClients->next;
 		}
 		FD_SET(serverSocket, &set_read);
 
+		//I check if the max_fd + 1 is set
 		if (select(max_fd + 1, &set_read, NULL, NULL, &timeout) > 0) {
-			//New connexion
+			//If the FD is set
 			if (FD_ISSET(serverSocket, &set_read)) {
-				connfd = accept(serverSocket, (struct sockaddr *)&cli, &len);
-				//Connexion accepted
-				if (connfd >= 0) {
-					id = AddClient(&clients, connfd, serverSocket);
-					if (max_fd < connfd)
-						max_fd = connfd;
-					sprintf(sendBuffer, "server: client %d just arrived\n", id);
-					sendToClients(clients, sendBuffer, connfd);
+				//I try to accept a new connexion
+				clientFd = accept(serverSocket, (struct sockaddr *)&cli, &socketLen);
+				//If the connexion succeed
+				if (clientFd >= 0) {
+					//Add a client
+					clientId = AddClient(&clients, clientFd, serverSocket);
+					if (max_fd < clientFd)
+						max_fd = clientFd;
+
+					//Server output
+					printf("server: client %d just arrived\n", clientId);
+					//Fill the sendBuffer with the formated connexion message
+					sprintf(sendBuffer, "server: client %d just arrived\n", clientId);
+					sendToClients(clients, sendBuffer, clientFd);
 				}
 			}
+			//If the fd is not set
 			else {
-				tmp = clients;
-				while (tmp != NULL) {
-					connfd = tmp->fd;
-					id = tmp->id;
-					tmp = tmp->next;
-					if (FD_ISSET(connfd, &set_read)) {
-						recvSize = recv(connfd, recvBuffer, 4096, 0);
+				//I use a temp copy of my clients
+				tmpClients = clients;
+				//I loop throught my clients
+				while (tmpClients != NULL) {
+					clientFd = tmpClients->fd;
+					clientId = tmpClients->id;
+					tmpClients = tmpClients->next;
+					//If the FD is set
+					if (FD_ISSET(clientFd, &set_read)) {
+						//I try to receive octets send by the fd
+						recvSize = recv(clientFd, recvBuffer, 4096, 0);
 						//A client disconnect
 						if (recvSize == 0) {
-							id = deleteClient(&clients, connfd, serverSocket);
-							if (id != -1){
-								sprintf(sendBuffer, "server: client %d just left\n", id);
-								sendToClients(clients, sendBuffer, connfd);
+							clientId = deleteClient(&clients, clientFd, serverSocket);
+							if (clientId != -1){
+								//Server output
+								printf("server: client %d just left\n", clientId);
+								//Fill the sendBuffer with the formated disconnexion message
+								sprintf(sendBuffer, "server: client %d just left\n", clientId);
+								sendToClients(clients, sendBuffer, clientFd);
 							}
 						}
 						//Send received octets to clients
 						else if (recvSize > 0) {
+							//DEBUG
+							//printf("Message :\n");
+							//printf("recvBuffer :");
+							displayBuffer(recvBuffer);
+
 							msg = NULL;
 							while (extract_message(&recvBuffer, &msg) != 0) {
-								sprintf(sendBuffer, "client %d: %s", id, msg);
-								sendToClients(clients, sendBuffer, connfd);
+								//Server output
+								printf("client %d: %s", clientId, msg);
+								//Fill the sendBuffer with the formated message
+								sprintf(sendBuffer, "client %d: %s", clientId, msg);
+								sendToClients(clients, sendBuffer, clientFd);
+
+								//DEBUG
+								//printf("sendBuffer :");
+								//displayBuffer(sendBuffer);
 							}
+
+							//DEBUG
+							printf("\n");
 						}
 					}
 				}
