@@ -38,7 +38,7 @@ void	fatalError(t_client *clients, int serverSocket) {
 }
 
 //Add a new client to the linked list
-int		AddClient(t_client **clients, int serverSocket, int fd) {
+int		addClient(t_client **clients, int serverSocket, int fd) {
 	static int lastId = -1;
 	t_client*	new;
 	t_client*	tmp;
@@ -107,6 +107,7 @@ void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 	// socket create and verification 
 	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+
 	if (serverSocket == -1)
 		fatalError(clients, serverSocket);
 	// assign IP, PORT
@@ -127,11 +128,10 @@ int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 
 //Init fds
 void	initFds(t_client *clients, int serverSocket, fd_set *set_read, int *max_fd){
-	t_client *tmpClients;
+	t_client *tmpClients = clients;
 	
 	FD_ZERO(set_read);
 	*max_fd = serverSocket;
-	tmpClients = clients;
 	while (tmpClients != NULL) {
 		FD_SET(tmpClients->fd, set_read);
 		if (*max_fd < tmpClients->fd)
@@ -183,24 +183,19 @@ int main(int ac, char** av) {
 		//Init FD
 		initFds(clients, serverSocket, &set_read, &max_fd);
 
-		//I check if the max_fd + 1 is set
 		if (select(max_fd + 1, &set_read, NULL, NULL, NULL) > 0) {
-			//If the FD is set
 			if (FD_ISSET(serverSocket, &set_read)) {
 				//I try to accept a new connexion
 				clientFd = accept(serverSocket, (struct sockaddr *)&cli, &socketLen);
 				//If the connexion succeed
 				if (clientFd >= 0) {
 					//Add a client
-					clientId = AddClient(&clients, serverSocket, clientFd);
-					if (max_fd < clientFd)
-						max_fd = clientFd;
+					clientId = addClient(&clients, serverSocket, clientFd);
 					//Fill the sendBuffer with the formated connexion message
 					sprintf(sendBuffer, "server: client %d just arrived\n", clientId);
 					sendToClients(clients, serverSocket, clientFd, sendBuffer);
 				}
 			}
-			//If the fd is not set
 			else {
 				//I use a temp copy of my clients
 				tmpClients = clients;
