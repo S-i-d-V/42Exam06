@@ -105,8 +105,8 @@ int		deleteClient(t_client **clients, int fd) {
 		}
 		if (tmp != NULL) {
 			prev->next = tmp->next;
-			close(tmp->fd);
 			id = tmp->id;
+			close(tmp->fd);
 			free(tmp);
 		}
 	}
@@ -146,7 +146,6 @@ int main(int ac, char** av) {
 	socketLen = sizeof(cli);
 	while (1) {
 		initFds(clients, serverSocket, &setRead, &maxFd);
-
 		if (select(maxFd + 1, &setRead, NULL, NULL, NULL) > 0) {
 			if (FD_ISSET(serverSocket, &setRead)) {
 				clientFd = accept(serverSocket, (struct sockaddr *)&cli, &socketLen);
