@@ -124,6 +124,20 @@ void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 	}
 }
 
+void	displayBuffer(char *buffer){
+	int i = 0;
+
+	printf("Display buffer: '");
+	while (buffer[i]){
+		if (buffer[i] == '\n')
+			printf("\\n");
+		else
+			printf("%c", buffer[i]);
+		i++;
+	}
+	printf("'\n");
+}
+
 int main(int ac, char** av) {
 	int					serverSocket = -1;
 	socklen_t			socketLen;
@@ -172,8 +186,31 @@ int main(int ac, char** av) {
 							}
 						}
 						else if (recvSize > 0) {
-							sprintf(sendBuffer, "client %d: %s", clientId, recvBuffer);
-							sendToClients(clients, serverSocket, clientFd, sendBuffer);
+							displayBuffer(recvBuffer);
+
+							int i = 0;
+							int j = 0;
+							char msg[4096 * 42];
+							bzero(&msg, 4096 * 42);
+							while (recvBuffer[i]){
+								if (recvBuffer[i] == '\n'){
+									msg[j] = '\n';
+
+									sprintf(sendBuffer, "client %d: %s", clientId, msg);
+									sendToClients(clients, serverSocket, clientFd, sendBuffer);
+									bzero(&msg, 4096 * 42);
+									j = 0;
+								}
+								else {
+									msg[j] = recvBuffer[i];
+									j++;
+								}
+								i++;
+							}
+
+							//sprintf(sendBuffer, "client %d: %s", clientId, recvBuffer);
+							//sendToClients(clients, serverSocket, clientFd, sendBuffer);
+
 							bzero(&recvBuffer, 4096 * 42);
 						}
 					}
