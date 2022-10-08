@@ -16,7 +16,7 @@ int   initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg);
 void  initFds(t_client *clients, int serverSocket, fd_set *setRead, int *maxFd);
 
 void  sendToClients(t_client *clients, int serverSocket, int fd, char *toSend);
-void  checkMessage(t_client *clients, int serverSocket, t_client *sender, fd_set *setRead, char *toSend);
+void  sendMessage(t_client *clients, int serverSocket, t_client *sender, fd_set *setRead, char *toSend);
 
 int   addClient(t_client *clients, int serverSocket, int fd);
 int   deleteClient(t_client *clients, int serverSocket, int fd);
