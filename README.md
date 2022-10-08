@@ -4,6 +4,7 @@
 typedef struct  s_client {
   int fd;
   int id;
+  char cache[4096 * 42];
   struct s_client *next;
 }               t_client;
 ```
