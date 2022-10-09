@@ -156,7 +156,6 @@ int main(int ac, char** av) {
 	t_client*			clients = NULL;
 	t_client*			tmp = NULL;
 	int 				clientFd;
-	int					clientId;
 	int					maxFd;
 	fd_set				setRead;
 	char				recvBuffer[4096 * 42];

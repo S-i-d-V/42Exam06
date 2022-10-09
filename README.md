@@ -26,12 +26,14 @@ int main(int ac, char** av) {
 	int					serverSocket = -1;
 	socklen_t			socketLen;
 	struct sockaddr_in	servaddr, cli;
+
 	t_client*			clients = NULL;
 	t_client*			tmp = NULL;
 	int 				clientFd;
-	int					clientId;
+
 	int					maxFd;
 	fd_set				setRead;
+	
 	char				recvBuffer[4096 * 42];
 	ssize_t				recvSize;
 
