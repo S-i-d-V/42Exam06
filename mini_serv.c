@@ -78,15 +78,12 @@ void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 	}
 }
 
-void sendMessage(t_client *clients, int serverSocket, t_client *sender, fd_set *setRead, char *toSend){
+void sendMessage(t_client *clients, int serverSocket, t_client *sender, char *toSend){
     int i = 0;
-    int clientMsgSize = strlen(sender->cache) - 1;
     char sendBuffer[4096 * 43];
-
 
     while(toSend[i]){
         sender->cache[strlen(sender->cache)] = toSend[i];
-        clientMsgSize++;
         if (toSend[i] == '\n'){
             sprintf(sendBuffer, "client %d: %s", sender->id, sender->cache);
             sendToClients(clients, serverSocket, sender->fd, sendBuffer);
@@ -120,9 +117,9 @@ void		addClient(t_client **clients, int serverSocket, int fd) {
 }
 
 void		deleteClient(t_client **clients, int serverSocket, int fd) {
+	int			id = -1;
 	t_client*	prev = NULL;
 	t_client*	tmp = *clients;
-	int			id = -1;
     char        sendBuffer[128];
 
 	if (tmp != NULL && tmp->fd == fd) {
@@ -185,7 +182,7 @@ int main(int ac, char** av) {
                             break;
                         }
 						else if (recvSize > 0) {
-							sendMessage(clients, serverSocket, tmp, &setRead, recvBuffer);
+							sendMessage(clients, serverSocket, tmp, recvBuffer);
                             bzero(&recvBuffer, 4096 * 42);
 						}
 					}
