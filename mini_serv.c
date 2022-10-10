@@ -37,11 +37,9 @@ void	fatalError(t_client *clients, int serverSocket) {
 int initSocket(t_client *clients, struct sockaddr_in *servaddr, char *arg){
 	int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (serverSocket == -1)
+	if (serverSocket == -1 || atoi(arg) <= 0)
 		fatalError(clients, serverSocket);
 	bzero(servaddr, sizeof(*servaddr)); 
-	if (atoi(arg) <= 0)
-		fatalError(clients, serverSocket);
 	servaddr->sin_family = AF_INET; 
 	servaddr->sin_addr.s_addr = htonl(2130706433);
 	servaddr->sin_port = htons(atoi(arg));
@@ -76,21 +74,6 @@ void	sendToClients(t_client *clients, int serverSocket, int fd, char* toSend) {
 				fatalError(clients, serverSocket);
 		tmp = tmp->next;
 	}
-}
-
-void sendMessage(t_client *clients, int serverSocket, t_client *sender, char *toSend){
-    int i = 0;
-    char sendBuffer[4096 * 43];
-
-    while(toSend[i]){
-        sender->cache[strlen(sender->cache)] = toSend[i];
-        if (toSend[i] == '\n'){
-            sprintf(sendBuffer, "client %d: %s", sender->id, sender->cache);
-            sendToClients(clients, serverSocket, sender->fd, sendBuffer);
-            bzero(&sender->cache, 4096 * 42);
-        }
-        i++;
-    }
 }
 
 void		addClient(t_client **clients, int serverSocket, int fd) {
@@ -144,6 +127,21 @@ void		deleteClient(t_client **clients, int serverSocket, int fd) {
 		sprintf(sendBuffer, "server: client %d just left\n", id);
 		sendToClients(*clients, serverSocket, fd, sendBuffer);
 	}
+}
+
+void sendMessage(t_client *clients, int serverSocket, t_client *sender, char *toSend){
+    int i = 0;
+    char sendBuffer[4096 * 43];
+
+    while(toSend[i]){
+        sender->cache[strlen(sender->cache)] = toSend[i];
+        if (toSend[i] == '\n'){
+            sprintf(sendBuffer, "client %d: %s", sender->id, sender->cache);
+            sendToClients(clients, serverSocket, sender->fd, sendBuffer);
+            bzero(&sender->cache, 4096 * 42);
+        }
+        i++;
+    }
 }
 
 int main(int ac, char** av) {
